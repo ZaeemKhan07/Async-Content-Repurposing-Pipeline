@@ -93,13 +93,29 @@
         }
         .tweet:last-child { border-bottom: none; }
         pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; }
+
+        /* Simple loading animation */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>🚀 RepurposeAI</h1>
-            <p>Transform long blog posts into viral social content using Gemini 2.0 Flash-Lite</p>
+            <p>Transform long blog posts into viral social content using Gemini 2.5 Flash-Lite</p>
         </header>
 
         <div class="card">
@@ -133,56 +149,41 @@
         const statusBox = document.getElementById('statusBox');
         const results = document.getElementById('results');
         
-        let pollingInterval;
-
         submitBtn.addEventListener('click', async () => {
             const text = blogInput.value.trim();
             if (!text) return alert("Please enter some text!");
 
+            // Prepare UI for long wait
             submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner"></span>Processing... (may take 20s)';
             results.style.display = 'none';
-            showStatus("Submitting task...", "processing");
+            showStatus("Gemini is analyzing your post and generating content. Please wait...", "processing");
 
             try {
+                const startTime = Date.now();
                 const response = await fetch('/generate-socials', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ blog_text: text })
                 });
                 
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+
                 const data = await response.json();
-                startPolling(data.task_id);
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                
+                displayResults(data);
+                showStatus(`Done! (Generated in ${duration}s)`, "completed");
             } catch (error) {
-                showStatus("Error submitting task", "failed");
+                console.error("Generation error:", error);
+                showStatus("Error: Generation failed. The post might be too long or the API timed out.", "failed");
+            } finally {
                 submitBtn.disabled = false;
+                submitBtn.innerText = "Generate Social Content";
             }
         });
-
-        function startPolling(taskId) {
-            showStatus("Gemini is thinking... (Status: PROCESSING)", "processing");
-            
-            pollingInterval = setInterval(async () => {
-                try {
-                    const response = await fetch(`/status/${taskId}`);
-                    const data = await response.json();
-
-                    if (data.status === 'COMPLETED') {
-                        clearInterval(pollingInterval);
-                        displayResults(data);
-                        showStatus("Done!", "completed");
-                        submitBtn.disabled = false;
-                    } else if (data.status === 'FAILED') {
-                        clearInterval(pollingInterval);
-                        showStatus(`Error: ${data.error_message}`, "failed");
-                        submitBtn.disabled = false;
-                    } else {
-                        showStatus(`Gemini is thinking... (Status: ${data.status})`, "processing");
-                    }
-                } catch (error) {
-                    console.error("Polling error:", error);
-                }
-            }, 3000);
-        }
 
         function showStatus(text, type) {
             statusBox.innerText = text;

@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, Text, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 import os
 from dotenv import load_dotenv
 
@@ -9,10 +10,15 @@ load_dotenv()
 # Vercel has a read-only filesystem. Use in-memory DB if on Vercel.
 if os.getenv("VERCEL"):
     DATABASE_URL = "sqlite:///:memory:"
+    engine = create_engine(
+        DATABASE_URL, 
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool  # Keeps the connection open in memory
+    )
 else:
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./tasks.db")
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
