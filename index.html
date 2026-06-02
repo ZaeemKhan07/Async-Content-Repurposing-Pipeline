@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RepurposeAI - Social Media Generator</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .card {
+            background: var(--card);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            margin-bottom: 24px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            resize: vertical;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #1d4ed8;
+        }
+        button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+        .status-box {
+            display: none;
+            text-align: center;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+        .status-processing { background: #dbeafe; color: #1e40af; }
+        .status-completed { background: #dcfce7; color: #166534; }
+        .status-failed { background: #fee2e2; color: #991b1b; }
+        
+        .result-section {
+            display: none;
+            margin-top: 32px;
+        }
+        .result-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+            margin-bottom: 20px;
+        }
+        h3 { margin-top: 0; color: var(--primary); }
+        .tweet {
+            padding: 10px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .tweet:last-child { border-bottom: none; }
+        pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 RepurposeAI</h1>
+            <p>Transform long blog posts into viral social content using Gemini 2.0 Flash-Lite</p>
+        </header>
+
+        <div class="card">
+            <h3>Paste your blog post here</h3>
+            <textarea id="blogInput" placeholder="Enter your 3,000-word masterpiece..."></textarea>
+            <button id="submitBtn">Generate Social Content</button>
+            <div id="statusBox" class="status-box"></div>
+        </div>
+
+        <div id="results" class="result-section">
+            <div class="result-card">
+                <h3>📝 Summary</h3>
+                <div id="summaryResult"></div>
+            </div>
+            
+            <div class="result-card">
+                <h3>🐦 Twitter Thread</h3>
+                <div id="twitterResult"></div>
+            </div>
+
+            <div class="result-card">
+                <h3>💼 LinkedIn Post</h3>
+                <pre id="linkedinResult"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const blogInput = document.getElementById('blogInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const statusBox = document.getElementById('statusBox');
+        const results = document.getElementById('results');
+        
+        let pollingInterval;
+
+        submitBtn.addEventListener('click', async () => {
+            const text = blogInput.value.trim();
+            if (!text) return alert("Please enter some text!");
+
+            submitBtn.disabled = true;
+            results.style.display = 'none';
+            showStatus("Submitting task...", "processing");
+
+            try {
+                const response = await fetch('/generate-socials', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ blog_text: text })
+                });
+                
+                const data = await response.json();
+                startPolling(data.task_id);
+            } catch (error) {
+                showStatus("Error submitting task", "failed");
+                submitBtn.disabled = false;
+            }
+        });
+
+        function startPolling(taskId) {
+            showStatus("Gemini is thinking... (Status: PROCESSING)", "processing");
+            
+            pollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/status/${taskId}`);
+                    const data = await response.json();
+
+                    if (data.status === 'COMPLETED') {
+                        clearInterval(pollingInterval);
+                        displayResults(data);
+                        showStatus("Done!", "completed");
+                        submitBtn.disabled = false;
+                    } else if (data.status === 'FAILED') {
+                        clearInterval(pollingInterval);
+                        showStatus(`Error: ${data.error_message}`, "failed");
+                        submitBtn.disabled = false;
+                    } else {
+                        showStatus(`Gemini is thinking... (Status: ${data.status})`, "processing");
+                    }
+                } catch (error) {
+                    console.error("Polling error:", error);
+                }
+            }, 3000);
+        }
+
+        function showStatus(text, type) {
+            statusBox.innerText = text;
+            statusBox.style.display = 'block';
+            statusBox.className = `status-box status-${type}`;
+        }
+
+        function displayResults(data) {
+            document.getElementById('summaryResult').innerText = data.summary;
+            
+            const twitterDiv = document.getElementById('twitterResult');
+            twitterDiv.innerHTML = data.twitter_thread.map((t, i) => `
+                <div class="tweet"><strong>Tweet ${i+1}:</strong><br>${t}</div>
+            `).join('');
+            
+            document.getElementById('linkedinResult').innerText = data.linkedin_post;
+            results.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
