@@ -1,6 +1,4 @@
 fastapi
 uvicorn
 google-genai
-sqlalchemy
-pydantic-settings
 python-dotenv
