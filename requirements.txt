@@ -8,3 +8,4 @@ trafilatura
 pymupdf
 httpx
 pydantic-settings
+python-multipart
