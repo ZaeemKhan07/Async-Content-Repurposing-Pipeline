@@ -304,22 +304,11 @@
             document.getElementById('summaryResult').innerText = res.summary;
             document.getElementById('linkedinResult').innerText = res.linkedin_post;
             document.getElementById('instagramResult').innerText = res.instagram_caption;
-            document.getElementById('imagePrompt').innerText = res.image_prompt;
 
             const twitterDiv = document.getElementById('twitterResult');
             twitterDiv.innerHTML = res.twitter_thread.map((t, i) => `
                 <div class="tweet"><strong>${i+1}/5</strong><br>${t}</div>
             `).join('');
-
-            const img = document.getElementById('generatedImage');
-            const placeholder = document.getElementById('imagePlaceholder');
-            if (res.image_url) {
-                img.src = res.image_url;
-                img.style.display = 'block';
-                placeholder.style.display = 'none';
-            } else {
-                placeholder.innerText = "Image generation skipped or failed.";
-            }
 
             resultsDiv.style.display = 'grid';
         }
