@@ -10,9 +10,16 @@ load_dotenv()
 # Use Supabase URL or local fallback
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 
-# If on Vercel and no DB URL is provided, we might still want to use memory or error out.
-# However, for true persistence on Vercel, DATABASE_URL must be a real PG URL.
-if "postgres" in DATABASE_URL:
+# Cleanup Supabase/PostgreSQL URLs
+if DATABASE_URL.startswith("postgres://"):
+    # SQLAlchemy requires postgresql:// instead of postgres://
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Strip pgbouncer parameter which causes psycopg2 to fail
+if "pgbouncer=true" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("?pgbouncer=true", "").replace("&pgbouncer=true", "")
+
+if "postgresql" in DATABASE_URL:
     engine = create_engine(DATABASE_URL)
 else:
     # Fallback to SQLite for local dev

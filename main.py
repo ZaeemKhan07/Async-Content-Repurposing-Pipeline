@@ -53,10 +53,10 @@ async def run_pipeline_task(task_id: str, input_type: str, content: str = None, 
         results = await services.generate_repurposed_content(extracted_text)
         
         # Step 3: Generate Image (Optional)
-        image_url = await services.generate_social_image(results.image_prompt)
+        image_url = await services.generate_social_image(results.get("image_prompt"))
         
         # Step 4: Save Results
-        final_results = results.dict()
+        final_results = results
         final_results["image_url"] = image_url
         
         task.results = final_results
