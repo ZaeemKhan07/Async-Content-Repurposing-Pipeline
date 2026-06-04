@@ -68,7 +68,17 @@ async def generate_repurposed_content(text: str):
         )
     )
     
-    return response.parsed
+    # Explicitly return a dict to avoid attribute errors in main.py
+    if hasattr(response, "parsed"):
+        # If it's a Pydantic model (SDK behavior), convert to dict
+        if hasattr(response.parsed, "model_dump"):
+            return response.parsed.model_dump()
+        elif hasattr(response.parsed, "dict"):
+            return response.parsed.dict()
+        return response.parsed
+    
+    # Fallback to manual parsing if necessary
+    return json.loads(response.text)
 
 async def generate_social_image(prompt: str) -> str:
     if not HF_TOKEN:

@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 # Use Supabase URL or local fallback
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 

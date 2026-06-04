@@ -53,10 +53,22 @@ async def run_pipeline_task(task_id: str, input_type: str, content: str = None, 
         results = await services.generate_repurposed_content(extracted_text)
         
         # Step 3: Generate Image (Optional)
-        image_url = await services.generate_social_image(results.get("image_prompt"))
+        # Handle cases where results might be a dict or a Pydantic model
+        if isinstance(results, dict):
+            image_prompt = results.get("image_prompt")
+        else:
+            image_prompt = getattr(results, "image_prompt", None)
+            
+        image_url = await services.generate_social_image(image_prompt)
         
         # Step 4: Save Results
-        final_results = results
+        if isinstance(results, dict):
+            final_results = results.copy()
+        elif hasattr(results, "dict"):
+            final_results = results.dict()
+        else:
+            final_results = dict(results)
+            
         final_results["image_url"] = image_url
         
         task.results = final_results
@@ -64,9 +76,11 @@ async def run_pipeline_task(task_id: str, input_type: str, content: str = None, 
         db.commit()
         
     except Exception as e:
-        print(f"Task {task_id} failed: {e}")
+        import traceback
+        error_msg = f"{str(e)}\n{traceback.format_exc()}"
+        print(f"Task {task_id} failed: {error_msg}")
         task.status = "Failed"
-        task.error = str(e)
+        task.error = error_msg
         db.commit()
     finally:
         db.close()
