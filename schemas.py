@@ -10,6 +10,7 @@ class SocialsOutput(BaseModel):
     summary: str
     twitter_thread: List[str]
     linkedin_post: str
+    facebook_post: str
     instagram_caption: str
     image_prompt: str
     image_url: Optional[str] = None

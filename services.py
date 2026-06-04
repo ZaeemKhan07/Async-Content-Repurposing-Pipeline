@@ -37,8 +37,9 @@ async def generate_repurposed_content(text: str):
     1. A concise summary of the core message.
     2. A 5-tweet Twitter thread that is engaging and uses hooks.
     3. A professional LinkedIn post that encourages discussion.
-    4. An Instagram caption with relevant hashtags.
-    5. A highly descriptive 'Image Prompt' for an AI image generator that captures the essence of this content visually.
+    4. An engaging Facebook post suitable for a community or personal page.
+    5. An Instagram caption with relevant hashtags.
+    6. A highly descriptive 'Image Prompt' for an AI image generator that captures the essence of this content visually.
     
     Blog Content:
     {text[:8000]} # Truncate to avoid context limits if necessary
@@ -59,10 +60,11 @@ async def generate_repurposed_content(text: str):
                         "items": {"type": "STRING"}
                     },
                     "linkedin_post": {"type": "STRING"},
+                    "facebook_post": {"type": "STRING"},
                     "instagram_caption": {"type": "STRING"},
                     "image_prompt": {"type": "STRING"}
                 },
-                "required": ["summary", "twitter_thread", "linkedin_post", "instagram_caption", "image_prompt"]
+                "required": ["summary", "twitter_thread", "linkedin_post", "facebook_post", "instagram_caption", "image_prompt"]
             }
         )
     )
