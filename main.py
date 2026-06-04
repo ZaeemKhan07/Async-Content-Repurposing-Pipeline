@@ -52,16 +52,7 @@ async def run_pipeline_task(task_id: str, input_type: str, content: str = None, 
         # Step 2: Generate Content with Gemini
         results = await services.generate_repurposed_content(extracted_text)
         
-        # Step 3: Generate Image (Optional)
-        # Handle cases where results might be a dict or a Pydantic model
-        if isinstance(results, dict):
-            image_prompt = results.get("image_prompt")
-        else:
-            image_prompt = getattr(results, "image_prompt", None)
-            
-        image_url = await services.generate_social_image(image_prompt)
-        
-        # Step 4: Save Results
+        # Step 3: Save Results
         if isinstance(results, dict):
             final_results = results.copy()
         elif hasattr(results, "dict"):
@@ -69,8 +60,6 @@ async def run_pipeline_task(task_id: str, input_type: str, content: str = None, 
         else:
             final_results = dict(results)
             
-        final_results["image_url"] = image_url
-        
         task.results = final_results
         task.status = "Completed"
         db.commit()
