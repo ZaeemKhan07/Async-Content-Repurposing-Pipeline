@@ -88,25 +88,28 @@ async def generate_social_image(prompt: str) -> str:
     API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
     
-    async with httpx.AsyncClient() as client:
+    print(f"Attempting to generate image with prompt: {prompt[:50]}...")
+    
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         try:
             response = await client.post(
                 API_URL, 
                 headers=headers, 
                 json={"inputs": prompt},
-                timeout=30.0
+                timeout=60.0
             )
             
             if response.status_code != 200:
                 print(f"Hugging Face API error: {response.status_code} - {response.text}")
                 return None
             
-            # Since we are on Vercel, we can't save the file locally.
-            # We will return the image as a base64 string or host it elsewhere.
-            # For simplicity, returning a data URI.
+            print("Image generated successfully")
             image_base64 = base64.b64encode(response.content).decode("utf-8")
             return f"data:image/webp;base64,{image_base64}"
             
+        except httpx.ConnectError as e:
+            print(f"Connection error to Hugging Face: {e}. Please check your internet connection or DNS settings.")
+            return None
         except Exception as e:
             print(f"Image generation failed: {e}")
             return None
