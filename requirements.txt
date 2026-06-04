@@ -2,3 +2,10 @@ fastapi
 uvicorn
 google-genai
 python-dotenv
+sqlalchemy
+psycopg2-binary
+trafilatura
+pymupdf
+httpx
+pydantic-settings
+python-multipart

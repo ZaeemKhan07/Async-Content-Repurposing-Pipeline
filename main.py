@@ -1,33 +1,125 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 import schemas
 import services
-import uvicorn
+import models
+import uuid
 import os
+from sqlalchemy.orm import Session
 
 app = FastAPI(title="RepurposeAI - Social Media Generator")
 
-# Serve Frontend
+# CORS for local development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize DB
+models.init_db()
+
+def get_db():
+    db = models.SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 @app.get("/")
 def read_root():
     return FileResponse("index.html")
 
-@app.post("/generate-socials", response_model=schemas.SocialsOutput)
-async def generate_socials(request: schemas.SocialsRequest):
+async def run_pipeline_task(task_id: str, input_type: str, content: str = None, file_bytes: bytes = None):
+    db = models.SessionLocal()
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    
     try:
-        # Process with Gemini directly (this will block until done)
-        results = await services.generate_repurposed_content(request.blog_text)
+        task.status = "Processing"
+        db.commit()
+
+        # Step 1: Extract Text
+        extracted_text = ""
+        if input_type == "text":
+            extracted_text = content
+        elif input_type == "url":
+            extracted_text = await services.extract_from_url(content)
+        elif input_type == "pdf":
+            extracted_text = await services.extract_from_pdf(file_bytes)
         
-        # In the new services.py, results is a dict or a parsed object
-        # We need to ensure it matches the SocialsOutput schema
-        return schemas.SocialsOutput(
-            summary=results.get("summary", ""),
-            twitter_thread=results.get("twitter_thread", []),
-            linkedin_post=results.get("linkedin_post", "")
-        )
+        # Step 2: Generate Content with Gemini
+        results = await services.generate_repurposed_content(extracted_text)
+        
+        # Step 3: Save Results
+        if isinstance(results, dict):
+            final_results = results.copy()
+        elif hasattr(results, "dict"):
+            final_results = results.dict()
+        else:
+            final_results = dict(results)
+            
+        task.results = final_results
+        task.status = "Completed"
+        db.commit()
+        
     except Exception as e:
-        print(f"Generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        error_msg = f"{str(e)}\n{traceback.format_exc()}"
+        print(f"Task {task_id} failed: {error_msg}")
+        task.status = "Failed"
+        task.error = error_msg
+        db.commit()
+    finally:
+        db.close()
+
+@app.post("/generate-socials")
+async def generate_socials(
+    background_tasks: BackgroundTasks,
+    input_type: str = Form(...),
+    content: str = Form(None),
+    file: UploadFile = File(None)
+):
+    task_id = str(uuid.uuid4())
+    db = models.SessionLocal()
+    
+    # Store initial task
+    new_task = models.Task(
+        id=task_id,
+        status="Pending",
+        input_type=input_type,
+        input_data=content if content else "File Upload"
+    )
+    db.add(new_task)
+    db.commit()
+    db.close()
+
+    # Process background task
+    file_bytes = None
+    if input_type == "pdf" and file:
+        file_bytes = await file.read()
+
+    background_tasks.add_task(run_pipeline_task, task_id, input_type, content, file_bytes)
+    
+    return {"task_id": task_id}
+
+@app.get("/status/{task_id}", response_model=schemas.TaskStatus)
+async def get_status(task_id: str):
+    db = models.SessionLocal()
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    db.close()
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    return schemas.TaskStatus(
+        task_id=task.id,
+        status=task.status,
+        results=task.results if task.results else None,
+        error=task.error
+    )
 
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -7,9 +7,12 @@
     <style>
         :root {
             --primary: #2563eb;
+            --secondary: #64748b;
             --bg: #f8fafc;
             --card: #ffffff;
             --text: #1e293b;
+            --success: #22c55e;
+            --error: #ef4444;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -20,7 +23,7 @@
             padding: 20px;
         }
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
         }
         header {
@@ -34,80 +37,116 @@
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
             margin-bottom: 24px;
         }
-        textarea {
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+        .tab-btn {
+            padding: 8px 16px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--secondary);
+            border-radius: 6px;
+        }
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+        .input-group {
+            display: none;
+        }
+        .input-group.active {
+            display: block;
+        }
+        textarea, input[type="text"], input[type="file"] {
             width: 100%;
-            height: 200px;
             padding: 12px;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
             font-size: 16px;
-            resize: vertical;
-            margin-bottom: 16px;
             box-sizing: border-box;
+            margin-bottom: 16px;
         }
-        button {
+        textarea { height: 150px; resize: vertical; }
+        button#submitBtn {
             background-color: var(--primary);
             color: white;
-            padding: 12px 24px;
+            padding: 14px 24px;
             border: none;
             border-radius: 8px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
             width: 100%;
+            transition: all 0.2s;
         }
-        button:hover {
-            background-color: #1d4ed8;
-        }
-        button:disabled {
-            background-color: #94a3b8;
-            cursor: not-allowed;
-        }
+        button#submitBtn:hover { background-color: #1d4ed8; }
+        button#submitBtn:disabled { background-color: #94a3b8; cursor: not-allowed; }
+        
         .status-box {
             display: none;
-            text-align: center;
             padding: 16px;
             border-radius: 8px;
             margin-top: 16px;
+            font-weight: 500;
         }
+        .status-pending { background: #fef9c3; color: #854d0e; }
         .status-processing { background: #dbeafe; color: #1e40af; }
         .status-completed { background: #dcfce7; color: #166534; }
         .status-failed { background: #fee2e2; color: #991b1b; }
         
-        .result-section {
-            display: none;
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
             margin-top: 32px;
+            display: none;
         }
         .result-card {
             background: white;
             padding: 20px;
             border-radius: 8px;
-            border-left: 4px solid var(--primary);
-            margin-bottom: 20px;
+            border-top: 4px solid var(--primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        h3 { margin-top: 0; color: var(--primary); }
+        .full-width { grid-column: span 2; }
+        h3 { margin-top: 0; color: var(--primary); font-size: 1.1rem; }
         .tweet {
-            padding: 10px;
+            padding: 12px;
             border-bottom: 1px solid #f1f5f9;
+            background: #f8fafc;
+            border-radius: 6px;
+            margin-bottom: 8px;
         }
-        .tweet:last-child { border-bottom: none; }
-        pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; }
-
-        /* Simple loading animation */
+        pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; font-size: 0.95rem; }
+        img#generatedImage {
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 10px;
+            border: 1px solid #e2e8f0;
+        }
+        
         .spinner {
             display: inline-block;
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             border: 3px solid rgba(255,255,255,.3);
             border-radius: 50%;
             border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
+            animation: spin 1s linear infinite;
             margin-right: 10px;
             vertical-align: middle;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) {
+            .result-grid { grid-template-columns: 1fr; }
+            .full-width { grid-column: span 1; }
         }
     </style>
 </head>
@@ -115,18 +154,39 @@
     <div class="container">
         <header>
             <h1>🚀 RepurposeAI</h1>
-            <p>Transform long blog posts into viral social content using Gemini 2.5 Flash-Lite</p>
+            <p>Convert Blogs, URLs, or PDFs into Social Media Assets</p>
         </header>
 
         <div class="card">
-            <h3>Paste your blog post here</h3>
-            <textarea id="blogInput" placeholder="Enter your 3,000-word masterpiece..."></textarea>
-            <button id="submitBtn">Generate Social Content</button>
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('text')">Text</button>
+                <button class="tab-btn" onclick="switchTab('url')">URL</button>
+                <button class="tab-btn" onclick="switchTab('pdf')">PDF</button>
+            </div>
+
+            <form id="generatorForm">
+                <input type="hidden" id="inputType" name="input_type" value="text">
+                
+                <div id="textInputGroup" class="input-group active">
+                    <textarea name="content" id="textContent" placeholder="Paste your blog content here..."></textarea>
+                </div>
+
+                <div id="urlInputGroup" class="input-group">
+                    <input type="text" name="content_url" id="urlContent" placeholder="https://example.com/blog-post">
+                </div>
+
+                <div id="pdfInputGroup" class="input-group">
+                    <input type="file" name="file" id="pdfContent" accept="application/pdf">
+                </div>
+
+                <button type="submit" id="submitBtn">Generate Assets</button>
+            </form>
+            
             <div id="statusBox" class="status-box"></div>
         </div>
 
-        <div id="results" class="result-section">
-            <div class="result-card">
+        <div id="results" class="result-grid">
+            <div class="result-card full-width">
                 <h3>📝 Summary</h3>
                 <div id="summaryResult"></div>
             </div>
@@ -140,50 +200,104 @@
                 <h3>💼 LinkedIn Post</h3>
                 <pre id="linkedinResult"></pre>
             </div>
+
+            <div class="result-card">
+                <h3>📘 Facebook Post</h3>
+                <pre id="facebookResult"></pre>
+            </div>
+
+            <div class="result-card">
+                <h3>📸 Instagram Caption</h3>
+                <pre id="instagramResult"></pre>
+            </div>
         </div>
     </div>
 
     <script>
-        const blogInput = document.getElementById('blogInput');
+        const form = document.getElementById('generatorForm');
         const submitBtn = document.getElementById('submitBtn');
         const statusBox = document.getElementById('statusBox');
-        const results = document.getElementById('results');
-        
-        submitBtn.addEventListener('click', async () => {
-            const text = blogInput.value.trim();
-            if (!text) return alert("Please enter some text!");
+        const resultsDiv = document.getElementById('results');
+        let currentTaskId = null;
 
-            // Prepare UI for long wait
+        function switchTab(type) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.innerText.toLowerCase() === type);
+            });
+            document.querySelectorAll('.input-group').forEach(group => {
+                group.classList.remove('active');
+            });
+            document.getElementById(`${type}InputGroup`).classList.add('active');
+            document.getElementById('inputType').value = type;
+        }
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const type = document.getElementById('inputType').value;
+            const formData = new FormData();
+            formData.append('input_type', type);
+
+            if (type === 'text') {
+                const content = document.getElementById('textContent').value;
+                if (!content) return alert("Please paste some text");
+                formData.append('content', content);
+            } else if (type === 'url') {
+                const content = document.getElementById('urlContent').value;
+                if (!content) return alert("Please enter a URL");
+                formData.append('content', content);
+            } else if (type === 'pdf') {
+                const file = document.getElementById('pdfContent').files[0];
+                if (!file) return alert("Please select a PDF file");
+                formData.append('file', file);
+            }
+
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner"></span>Processing... (may take 20s)';
-            results.style.display = 'none';
-            showStatus("Gemini is analyzing your post and generating content. Please wait...", "processing");
+            submitBtn.innerHTML = '<span class="spinner"></span> Starting task...';
+            resultsDiv.style.display = 'none';
+            showStatus("Initializing task...", "pending");
 
             try {
-                const startTime = Date.now();
                 const response = await fetch('/generate-socials', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ blog_text: text })
+                    body: formData
                 });
-                
-                if (!response.ok) {
-                    throw new Error(await response.text());
-                }
-
                 const data = await response.json();
-                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-                
-                displayResults(data);
-                showStatus(`Done! (Generated in ${duration}s)`, "completed");
-            } catch (error) {
-                console.error("Generation error:", error);
-                showStatus("Error: Generation failed. The post might be too long or the API timed out.", "failed");
-            } finally {
+                currentTaskId = data.task_id;
+                startPolling(currentTaskId);
+            } catch (err) {
+                showStatus("Failed to start task: " + err.message, "failed");
                 submitBtn.disabled = false;
-                submitBtn.innerText = "Generate Social Content";
+                submitBtn.innerText = "Generate Assets";
             }
-        });
+        };
+
+        function startPolling(taskId) {
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/status/${taskId}`);
+                    const data = await res.json();
+
+                    if (data.status === 'Processing') {
+                        showStatus("AI is working (Processing summary & socials)...", "processing");
+                        submitBtn.innerHTML = '<span class="spinner"></span> Processing...';
+                    } else if (data.status === 'Completed') {
+                        clearInterval(interval);
+                        displayResults(data.results);
+                        showStatus("Task completed successfully!", "completed");
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = "Generate Assets";
+                    } else if (data.status === 'Failed') {
+                        clearInterval(interval);
+                        showStatus("Error: " + data.error, "failed");
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = "Generate Assets";
+                    }
+                } catch (err) {
+                    clearInterval(interval);
+                    showStatus("Polling failed", "failed");
+                }
+            }, 2000);
+        }
 
         function showStatus(text, type) {
             statusBox.innerText = text;
@@ -191,16 +305,18 @@
             statusBox.className = `status-box status-${type}`;
         }
 
-        function displayResults(data) {
-            document.getElementById('summaryResult').innerText = data.summary;
-            
+        function displayResults(res) {
+            document.getElementById('summaryResult').innerText = res.summary;
+            document.getElementById('linkedinResult').innerText = res.linkedin_post;
+            document.getElementById('facebookResult').innerText = res.facebook_post;
+            document.getElementById('instagramResult').innerText = res.instagram_caption;
+
             const twitterDiv = document.getElementById('twitterResult');
-            twitterDiv.innerHTML = data.twitter_thread.map((t, i) => `
-                <div class="tweet"><strong>Tweet ${i+1}:</strong><br>${t}</div>
+            twitterDiv.innerHTML = res.twitter_thread.map((t, i) => `
+                <div class="tweet"><strong>${i+1}/5</strong><br>${t}</div>
             `).join('');
-            
-            document.getElementById('linkedinResult').innerText = data.linkedin_post;
-            results.style.display = 'block';
+
+            resultsDiv.style.display = 'grid';
         }
     </script>
 </body>
