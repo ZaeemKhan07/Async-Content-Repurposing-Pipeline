@@ -202,6 +202,11 @@
             </div>
 
             <div class="result-card">
+                <h3>📘 Facebook Post</h3>
+                <pre id="facebookResult"></pre>
+            </div>
+
+            <div class="result-card">
                 <h3>📸 Instagram Caption</h3>
                 <pre id="instagramResult"></pre>
             </div>
@@ -303,6 +308,7 @@
         function displayResults(res) {
             document.getElementById('summaryResult').innerText = res.summary;
             document.getElementById('linkedinResult').innerText = res.linkedin_post;
+            document.getElementById('facebookResult').innerText = res.facebook_post;
             document.getElementById('instagramResult').innerText = res.instagram_caption;
 
             const twitterDiv = document.getElementById('twitterResult');
