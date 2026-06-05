@@ -1,6 +1,8 @@
 fastapi
 uvicorn
 google-genai
+google-auth
+pyjwt
 python-dotenv
 sqlalchemy
 psycopg2-binary
