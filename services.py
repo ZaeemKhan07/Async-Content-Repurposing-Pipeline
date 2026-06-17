@@ -2,16 +2,25 @@ import os
 import httpx
 import trafilatura
 import fitz  # PyMuPDF
-from google import genai
-from google.genai import types
+from guardrails import Guard
 from dotenv import load_dotenv
+import logfire
 import json
 import base64
+from schemas import SocialsOutput
 
 load_dotenv()
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-model_name = os.getenv("MODEL_NAME", "gemini-2.5-flash-lite")
+# Configure Logfire (non-blocking for local dev)
+logfire.configure(send_to_logfire=False) 
+
+# Initialize Guardrails
+# Guardrails uses LiteLLM, so we set the API key for Gemini
+if "GEMINI_API_KEY" not in os.environ and os.getenv("GEMINI_API_KEY"):
+    os.environ["GEMINI_API_KEY"] = os.getenv("GEMINI_API_KEY")
+
+# Define the Guard from the Pydantic model
+guard = Guard.for_pydantic(output_class=SocialsOutput)
 
 async def extract_from_url(url: str) -> str:
     downloaded = trafilatura.fetch_url(url)
@@ -30,54 +39,38 @@ async def extract_from_pdf(file_content: bytes) -> str:
     return text
 
 async def generate_repurposed_content(text: str):
-    # Prompt for multi-platform content
-    prompt = f"""
-    You are an expert social media manager. Based on the following blog content, generate a comprehensive social media package.
+    # Use the Guard to call the LLM
+    # gemini-1.5-flash is often more available
+    model_name = f"gemini/{os.getenv('MODEL_NAME', 'gemini-1.5-flash')}"
     
+    prompt = f"""
+    You are an expert social media manager. Based on the provided blog content, generate a comprehensive social media package.
     1. A concise summary of the core message.
     2. A 5-tweet Twitter thread that is engaging and uses hooks.
     3. A professional LinkedIn post that encourages discussion.
     4. An engaging Facebook post suitable for a community or personal page.
     5. An Instagram caption with relevant hashtags.
     6. A highly descriptive 'Image Prompt' for an AI image generator that captures the essence of this content visually.
-    
+
     Blog Content:
-    {text[:8000]} # Truncate to avoid context limits if necessary
+    {text[:8000]}
     """
+
+    # Run the guard
+    # Note: Guardrails 0.4+ async call is .__call__(..., pydantic_ai_mode=False) 
+    # but let's use the standard synchronous call wrapped in a thread if needed, 
+    # or check for async support. Guardrails does have async support.
     
-    # Use structured output
-    response = client.models.generate_content(
+    result = guard(
         model=model_name,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema={
-                "type": "OBJECT",
-                "properties": {
-                    "summary": {"type": "STRING"},
-                    "twitter_thread": {
-                        "type": "ARRAY",
-                        "items": {"type": "STRING"}
-                    },
-                    "linkedin_post": {"type": "STRING"},
-                    "facebook_post": {"type": "STRING"},
-                    "instagram_caption": {"type": "STRING"},
-                    "image_prompt": {"type": "STRING"}
-                },
-                "required": ["summary", "twitter_thread", "linkedin_post", "facebook_post", "instagram_caption", "image_prompt"]
-            }
-        )
+        messages=[{"role": "user", "content": prompt}],
+        metadata={"text": text[:8000]}
     )
     
-    # Explicitly return a dict to avoid attribute errors in main.py
-    if hasattr(response, "parsed"):
-        # If it's a Pydantic model (SDK behavior), convert to dict
-        if hasattr(response.parsed, "model_dump"):
-            return response.parsed.model_dump()
-        elif hasattr(response.parsed, "dict"):
-            return response.parsed.dict()
-        return response.parsed
-    
-    # Fallback to manual parsing if necessary
-    return json.loads(response.text)
+    # Return the validated data as a dictionary
+    if result.validation_passed:
+        return result.validated_output
+    else:
+        # If it failed and couldn't be fixed
+        raise Exception(f"Validation failed: {result.error}")
 

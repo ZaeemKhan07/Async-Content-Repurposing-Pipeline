@@ -11,3 +11,7 @@ pymupdf
 httpx
 pydantic-settings
 python-multipart
+logfire[fastapi]
+guardrails-ai
+deepeval
+litellm

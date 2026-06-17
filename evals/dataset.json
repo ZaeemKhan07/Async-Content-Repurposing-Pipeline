@@ -1,0 +1,12 @@
+[
+    {
+        "id": "1",
+        "title": "The Future of AI Agents",
+        "content": "AI agents are transitioning from simple chatbots to autonomous systems that can reason, plan, and use tools. The key to this evolution is the integration of long-term memory and the ability to interact with external APIs. We are seeing a shift from 'chat-first' to 'action-first' interfaces."
+    },
+    {
+        "id": "2",
+        "title": "Why Fast-API is the Best for AI",
+        "content": "FastAPI's asynchronous nature makes it perfect for handling long-running LLM requests. By using background tasks, developers can provide a snappy user experience while the AI processes data in the background. Its native Pydantic support also ensures data integrity."
+    }
+]
